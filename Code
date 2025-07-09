@@ -1,0 +1,110 @@
+import serial
+import pyrebase
+import time
+import sys
+import os
+from picamera import PiCamera
+import RPi.GPIO as GPIO
+from time import sleep
+GPIO.setwarnings(False)
+GPIO.setmode(GPIO.BCM)
+buzzer = 25
+GPIO.setup(buzzer,GPIO.OUT)
+GPIO.output(buzzer,GPIO.HIGH)
+carone=22
+cartwo=27
+GPIO.setup(carone,GPIO.IN)
+GPIO.setup(cartwo,GPIO.IN)
+inone = GPIO.input(carone)
+intwo = GPIO.input(cartwo)
+config = {
+  "apiKey": "wV0X2vMCDEs4xH3Mg9T3UjbGTzq3UhdROe0sA2W5",
+  "authDomain": "antitheft-8f84d.firebaseapp.com",
+  "databaseURL": "https://antitheft-8f84d-default-rtdb.firebaseio.com/",
+  "storageBucket": "antitheft-8f84d.appspot.com"
+}
+
+firebaseConfig = {
+    'apiKey': "AIzaSyDDifRVygwh866IFqCwX9a2OmUIkEfkcJs",
+    'authDomain': "antitheft-8f84d.firebaseapp.com",
+    'databaseURL': "https://antitheft-8f84d-default-rtdb.firebaseio.com/",
+    'projectId': "antitheft-8f84d",
+    'storageBucket': "antitheft-8f84d.appspot.com",
+    'messagingSenderId': "612583091938",
+    'appId': "1:612583091938:web:c3d112716bcd28c479b8bb",
+    'measurementId': "G-3XT5YE155V"
+}
+
+firebase = pyrebase.initialize_app(firebaseConfig)
+
+storage = firebase.storage()
+
+camera = PiCamera()
+db = pyrebase.initialize_app(config).database()
+
+
+def GPS_Track(nmea_data):
+    gpgga_info = "$GPGGA,"
+    if gpgga_info in nmea_data:
+        nmea_parts = nmea_data.split(',')
+        lat = nmea_parts[2]
+        lon = nmea_parts[4]
+        lat_in_degrees, long_in_degrees = convert_to_degrees(lat, lon)
+        return lat_in_degrees, long_in_degrees
+    return None, None
+
+def convert_to_degrees(lat, lon):
+    lat_deg = int(lat[:2]) + float(lat[2:]) / 60
+    lon_deg = int(lon[:3]) + float(lon[3:]) / 60
+    return lat_deg, lon_deg
+
+def click():
+    print("pushed")
+    sleep(10)
+    name = 'antitheft.jpg'
+    camera.capture(name)
+    print(name+" saved")
+    storage.child(name).put(name)
+    print("Image sent")
+    os.remove(name)
+    print("File Removed")
+    sleep(2)
+    
+
+def sendSms(gsm, lat, lon, phone_number):
+    gsm.write(b'AT+CMGF=1\r\n')
+    time.sleep(0.5)
+    gsm.write(b'AT+CMGS=\"' + phone_number.encode() + b'\"\r\n')
+    time.sleep(0.5)
+    message = f'Latitude: {lat}, Longitude: {lon}'
+    gsm.write(message.encode() + b'\x1A')
+    time.sleep(3)
+    
+
+
+ser = serial.Serial("/dev/ttyS0")
+gsm = serial.Serial("/dev/ttyAMA1", 9600, timeout=0.5)
+
+GPIO.output(buzzer,GPIO.HIGH)
+while((inone == 1) or (intwo == 1)):
+    GPIO.output(buzzer,GPIO.LOW)
+    sleep(3)
+    GPIO.output(buzzer,GPIO.HIGH)
+    try:
+        while True:
+            received_data = ser.readline().decode("utf-8")
+            lat_in_degrees, long_in_degrees = GPS_Track(received_data)
+            data = {"latitude":lat_in_degrees, "longitude":long_in_degrees,}
+            db.child("gpsdata").child("1-set").set(data)
+            db.child("gpsdata").child("2-push").push(data)
+        
+            if lat_in_degrees is not None and long_in_degrees is not None:
+                print(f"Latitude: {lat_in_degrees}, Longitude: {long_in_degrees}")
+                phone_number = "+917386209259"  # Replace with the desired phone number
+                sendSms(gsm, lat_in_degrees, long_in_degrees, phone_number)
+                click()
+                time.sleep(15)
+
+    except KeyboardInterrupt:
+        sys.exit(0)
+
