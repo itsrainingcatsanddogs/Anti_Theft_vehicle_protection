@@ -1,5 +1,17 @@
 # Anti_Theft_vehicle_protection
 Anti_Theft_Vehicle_Protection
+## 🔧 Technologies Used
+Hardware: Raspberry Pi, GPS Module, GSM Module, Camera Module, Buzzer
+
+Programming Language: Python
+
+Cloud Services: Firebase Realtime Database & Storage
+
+Communication: Serial (UART), GPIO
+
+Libraries: pyrebase, RPi.GPIO, PiCamera
+
+Future Integration: OpenCV for face detection
 
 ## Anti-Theft Car Security System
 
