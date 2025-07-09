@@ -1,0 +1,40 @@
+# For open cv please refer to Paul mcwhorter's playlist, We can learn a lot. 
+import cv2
+from picamera.array import PiRGBArray
+from picamera import PiCamera
+import time
+import os
+
+# Load face detection model (Haar Cascade)
+face_cascade = cv2.CascadeClassifier('haarcascade_frontalface_default.xml')
+
+# Initialize PiCamera
+camera = PiCamera()
+camera.resolution = (640, 480)
+camera.framerate = 24
+rawCapture = PiRGBArray(camera, size=(640, 480))
+
+# Allow camera to warm up
+time.sleep(1)
+
+# Loop through frames
+for frame in camera.capture_continuous(rawCapture, format="bgr", use_video_port=True):
+    image = frame.array
+    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+
+    # Detect faces
+    faces = face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5)
+
+    if len(faces) > 0:
+        print("Face Detected!")
+        filename = "intruder_face.jpg"
+        cv2.imwrite(filename, image)
+        print(f"{filename} saved.")
+
+        # OPTIONAL: Upload to Firebase like your `click()` function
+        # storage.child(filename).put(filename)
+        # os.remove(filename)
+
+        break  # Exit after one detection
+
+    rawCapture.truncate(0)  # Clear the stream buffer
